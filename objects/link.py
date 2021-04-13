@@ -69,11 +69,6 @@ class Link:
 
         self.next_available_time = current_time + send_delay
 
-        if packet.extra["LOG_info"] is None:
-            packet.extra["LOG_info"] = {}
-        packet.extra["LOG_info"]["Link_in " + intip_to_strip(self.dest_ip)] = current_time
-        packet.extra["LOG_info"]["Link_out " + intip_to_strip(self.dest_ip)] = current_time + event_delay
-
         return event_delay, send_delay, is_dropped
 
     _next_id = 1

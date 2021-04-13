@@ -2,6 +2,8 @@ from config.constant import *
 
 from objects.packet import Packet
 
+from utils import *
+
 class Sender:
 
     def __init__(self, name, ip, cc_solution, sche_solution):
@@ -87,10 +89,10 @@ class Sender:
                 return event_list
 
         if len(self.wait_for_push_packets) != 0:
-            packet = self.wait_for_push_packets.pop()
+            packet = self.wait_for_push_packets.pop(0)
         else:
-            packet = self.wait_for_select_packets[self.sche_solution_cache].pop()
-
+            packet = self.wait_for_select_packets[self.sche_solution_cache].pop(0)
+            
         event_delay, send_delay, is_dropped = self.out_links[0].send_packet(packet, event_time)
 
         packet.is_dropped = is_dropped
@@ -100,6 +102,7 @@ class Sender:
         else:
             event_list.append((event_time + event_delay, eventType.PACKET_EVENT, self.out_links[0].dest_ip, packet))
 
+        actual_delay = send_delay
         if "PADDING_RATE" in self.cc_solution_cache:
             actual_delay = max(packet.size / ((self.cc_solution_cache["PADDING_RATE"] / 8) * 10**6 ), send_delay)
 
@@ -108,6 +111,8 @@ class Sender:
 
         if len(self.wait_for_push_packets) + self.wait_for_select_size() != 0:
             event_list.extend(self.generate_send_events(event_time + actual_delay))
+
+        packet.add_log(event_time, self.name + " out " + intip_to_strip(self.ip))
 
         self.cc_solution_cache = None
         self.sche_solution_cache = None
@@ -143,5 +148,9 @@ class Sender:
                     event_list.extend(self.generate_send_events(event_time))
                 
                 event_list.append((event_time, eventType.BLOCK_EVENT_ACK, packet))
+
+        packet.add_log(event_time, self.name + " in " + intip_to_strip(port_ip))
+
+        event_list.append((event_time, eventType.LOG_PACKET_EVENT, packet))
 
         return event_list

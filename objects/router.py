@@ -21,6 +21,11 @@ class Router:
                     self.route_table[tarsubnet] = i
                     break
         
+        for intip in self.ip_list:
+            print(intip_to_strip(intip), end = " ")
+        print()
+        print(route_table)
+
         self.lock_time = -1.0
         self.lock_count = 0
 
@@ -41,6 +46,8 @@ class Router:
 
         self.queue_sche_solution_cache_in = None
         self.queue_sche_solution_cache_out = None
+        
+        self.rr_port_index = 0
 
     def get_next_event_time(self):
 
@@ -74,7 +81,7 @@ class Router:
 
         assert(self.queue_sche_solution_cache_out is not None)
 
-        packet = self.queues[port_id][self.queue_sche_solution_cache_out].pop()
+        packet = self.queues[port_id][self.queue_sche_solution_cache_out].pop(0)
 
         event_delay, send_delay, is_dropped = self.out_links[port_id].send_packet(packet, event_time)
 
@@ -85,7 +92,7 @@ class Router:
         else:
             event_list.append((event_time + event_delay, eventType.PACKET_EVENT, self.out_links[port_id].dest_ip, packet))
 
-        self.router_available_time = event_time + 1 / self.max_rate
+        self.router_available_time = event_time + packet.size / ((self.max_rate / 8.0) * 10**6)
         self.port_available_time[port_id] = event_time + send_delay
 
         self.lock_count -= 1
@@ -107,6 +114,8 @@ class Router:
             self.lock_count += 1
             event_list.append((tartime, eventType.ROUTER_PRE_SEND_EVENT, self.send_packet))
 
+        packet.add_log(event_time, self.name + " out " + intip_to_strip(self.ip_list[port_id]))
+
         self.queue_sche_solution_cache_out = None
 
         return event_list
@@ -116,17 +125,26 @@ class Router:
         event_list = []
 
         if self.in_queue_size_total() == 0:
+            self.lock_count -= 1
             return event_list
-        
-        port_random_sort = list(range(len(self.queues)))
-        random.shuffle(port_random_sort)
 
-        for port in port_random_sort:
-            if self.in_queue_size(port) != 0 and self.out_links[port].is_available(event_time):
-                event_list.append((event_time, eventType.SOLUTION_ROUTER_SCHE_EVENT_OUT, self.queue_sche_solution.packet_out_queue, self, port))
-                event_list.append((event_time, eventType.ROUTER_SEND_EVENT, self.send_packet_port, port))
+        begin_index = self.rr_port_index
+        while(True):
+            if self.in_queue_size(self.rr_port_index) != 0 and self.out_links[self.rr_port_index].is_available(event_time):
+                chosen_port_index = self.rr_port_index
+                event_list.append((event_time, eventType.SOLUTION_ROUTER_SCHE_EVENT_OUT, self.queue_sche_solution.packet_out_queue, self, chosen_port_index))
+                event_list.append((event_time, eventType.ROUTER_SEND_EVENT, self.send_packet_port, chosen_port_index))
+                self.rr_port_index += 1
+                if self.rr_port_index == len(self.ip_list):
+                    self.rr_port_index = 0
                 break
-
+            self.rr_port_index += 1
+            if self.rr_port_index == len(self.ip_list):
+                self.rr_port_index = 0
+            if self.rr_port_index == begin_index:
+                break
+        if len(event_list) == 0:
+            self.lock_count -= 1
         return event_list
 
     def receive_packet(self, packet, port_ip, event_time):
@@ -137,7 +155,7 @@ class Router:
             event_list.append((event_time, eventType.SOLUTION_ROUTER_SCHE_EVENT_IN, self.queue_sche_solution.packet_in_queue, self, packet))
             event_list.append((event_time, eventType.PACKET_EVENT, port_ip, packet))
         else:
-            if self.in_queue_size_total() == 0 and self.lock_count == 0:
+            if self.lock_count == 0:
                 self.lock_count += 1
                 event_list.append((event_time, eventType.ROUTER_PRE_SEND_EVENT, self.send_packet))
 
@@ -155,6 +173,8 @@ class Router:
                 packet.is_dropped = True
                 event_list.append((event_time + packetConfig.DROP_PUNISHMENDT, eventType.PACKET_EVENT, packet.srcip, packet))
             
+            packet.add_log(event_time, self.name + " in " + intip_to_strip(port_ip))
+
             self.queue_sche_solution_cache_in = None
 
         return event_list

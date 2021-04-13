@@ -132,9 +132,7 @@ class Simluator:
                 event[2](event[3], event[4])
             if event_type == eventType.PACKET_EVENT:
                 event_list = self.ip_map[event[2]].receive_packet(event[3], event[2], event_time)
-                f = open(self.log_path + "packet_log/packet-0.log", "a+")
-                print(event[3].get_full_packet_info(), file = f)
-                f.close()
+                # print(intip_to_strip(event[2]), event[3].get_full_packet_info())
                 for event in event_list:
                     heapq.heappush(self.event_queue, event)
             if event_type == eventType.ROUTER_PRE_SEND_EVENT:
@@ -148,7 +146,11 @@ class Simluator:
             if event_type == eventType.BLOCK_EVENT_ACK:
                 self.block_map[event[2].extra["Block_info"]["Block_id"]].update_block_status_ack(event[2])
             if event_type == eventType.SOLUTION_SENDER_CC_EVENT_ACK:
-                event[2]()
+                event[2](event_time)
             if event_type == eventType.SOLUTION_SENDER_CC_EVENT_DROP:
-                event[2]()
+                event[2](event_time)
+            if event_type == eventType.LOG_PACKET_EVENT:
+                f = open(self.log_path + "packet_log/packet-0.log", "a+")
+                print(event[2].get_full_packet_info(), file = f)
+                f.close()
         return 

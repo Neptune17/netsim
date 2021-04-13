@@ -1,7 +1,7 @@
 class packetConfig:
     BYTES_PER_PACKET = 1500
     BYTES_PER_HEADER = 20
-    DROP_PUNISHMENDT = 0.5
+    DROP_PUNISHMENDT = 0.05
 
 class objectType:
     SENDER = 1
@@ -22,6 +22,7 @@ class eventType:
         11: "ROUTER_PRE_SEND_EVENT",
         12: "ROUTER_SEND_EVENT",
         13: "PACKET_EVENT",
+        14: "LOG_PACKET_EVENT",
     }
     STOP_CHECKER = 1
     BLOCK_EVENT_CREATE  = 2
@@ -36,3 +37,4 @@ class eventType:
     ROUTER_PRE_SEND_EVENT = 11
     ROUTER_SEND_EVENT = 12
     PACKET_EVENT = 13
+    LOG_PACKET_EVENT = 14

@@ -23,4 +23,6 @@ def strip_is_in_cidr(src_ip, cidr):
     cidr_prefix = cidr.split("/")[0]
     cidr_len = int(cidr.split("/")[1])
 
-    return strip_to_intip(cidr_prefix) & gen_subnet_mask(cidr_len) == strip_to_intip(src_ip) & gen_subnet_mask(cidr_len)
+    # print(src_ip, cidr, (strip_to_intip(cidr_prefix) & gen_subnet_mask(cidr_len)) == (strip_to_intip(src_ip) & gen_subnet_mask(cidr_len)))
+
+    return (strip_to_intip(cidr_prefix) & gen_subnet_mask(cidr_len)) == (strip_to_intip(src_ip) & gen_subnet_mask(cidr_len))
