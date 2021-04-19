@@ -3,6 +3,9 @@ class packetConfig:
     BYTES_PER_HEADER = 20
     DROP_PUNISHMENDT = 0.05
 
+class logConfig:
+    MAX_LINE_PER_FILE = 2000
+
 class objectType:
     SENDER = 1
     ROUTER = 2

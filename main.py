@@ -8,6 +8,8 @@ from solution.router.queue_scheduler_solution.sp import SP
 
 from config.constant import *
 
+from utils import *
+
 if __name__ == '__main__':
 
     net_trace1 = "dataset/link_trace/trace1.txt"
@@ -32,23 +34,11 @@ if __name__ == '__main__':
         "blocks": [
             ("192.168.0.1", "192.168.1.1", block_trace1)
         ]
-    }
-
-    def del_all(path):
-        ls = os.listdir(path)
-        for i in ls:
-            c_path = os.path.join(path, i)
-            if os.path.isdir(c_path):
-                del_all(c_path)
-                os.rmdir(c_path)
-            else:
-                os.remove(c_path)    
+    }  
 
     if os.path.exists("output/"):
         del_all("output")
-    
-    os.makedirs("output/packet_log")
-    os.mknod("output/packet_log/packet-0.log")
+    os.makedirs("output/")
 
     testsimluator = Simluator(config_dict, "output/")
     testsimluator.run()

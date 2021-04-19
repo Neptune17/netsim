@@ -1,3 +1,15 @@
+import os
+
+def del_all(path):
+    ls = os.listdir(path)
+    for i in ls:
+        c_path = os.path.join(path, i)
+        if os.path.isdir(c_path):
+            del_all(c_path)
+        else:
+            os.remove(c_path) 
+    os.rmdir(path)
+
 def strip_to_intip(strip):
     ips = strip.split(".")
     return (int(ips[0]) << 24) + (int(ips[1]) << 16) + (int(ips[2]) << 8) + (int(ips[3]) << 0)

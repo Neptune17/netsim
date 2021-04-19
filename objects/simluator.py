@@ -28,6 +28,8 @@ class Simluator:
         self.block_map = {}
 
         self.log_path = log_path
+        self.cur_log_index = -1
+        self.log_counter = 0
 
         for node_config in config_dict["nodes"]:
             node_type = node_config[0]
@@ -95,6 +97,21 @@ class Simluator:
                 self.block_map[block.block_id] = block
                 heapq.heappush(self.event_queue, (create_timestamp, eventType.BLOCK_EVENT_CREATE, self.ip_map[strip_to_intip(src_ip)].add_block, block.block_id))
 
+    def log_packet(self, packet):
+        if self.cur_log_index < 0:
+            self.cur_log_index = 1
+            os.mkdir(self.log_path + "packet_log/")
+            os.mknod(self.log_path + "packet_log/" + "packet-" + str(self.cur_log_index) + ".log")
+        elif self.log_counter % logConfig.MAX_LINE_PER_FILE == 0:
+            self.cur_log_index += 1
+            os.mknod(self.log_path + "packet_log/" + "packet-" + str(self.cur_log_index) + ".log")
+        
+        f = open(self.log_path + "packet_log/" + "packet-" + str(self.cur_log_index) + ".log", "a+")
+        print(packet.get_full_packet_info(), file = f)
+        f.close()
+
+        self.log_counter += 1
+
     def run(self, time = float("inf")):
 
         if time != float("inf"):
@@ -150,7 +167,5 @@ class Simluator:
             if event_type == eventType.SOLUTION_SENDER_CC_EVENT_DROP:
                 event[2](event_time)
             if event_type == eventType.LOG_PACKET_EVENT:
-                f = open(self.log_path + "packet_log/packet-0.log", "a+")
-                print(event[2].get_full_packet_info(), file = f)
-                f.close()
+                self.log_packet(event[2])
         return 
