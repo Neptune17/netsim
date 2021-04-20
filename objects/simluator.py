@@ -31,6 +31,8 @@ class Simluator:
         self.cur_log_index = -1
         self.log_counter = 0
 
+        os.mkdir(self.log_path + "router_log/")
+
         for node_config in config_dict["nodes"]:
             node_type = node_config[0]
             if node_type == objectType.SENDER:
@@ -53,7 +55,7 @@ class Simluator:
                 for strip in strip_list:
                     ip_list.append(strip_to_intip(strip))
 
-                router = Router(name = name, ip_list = ip_list, queue_config = queue_config, route_table = route_table, queue_sche_solution = queue_sche_solution, max_rate = max_rate)
+                router = Router(name = name, ip_list = ip_list, queue_config = queue_config, route_table = route_table, queue_sche_solution = queue_sche_solution, max_rate = max_rate, log_path = self.log_path + "router_log/")
                 self.routers.append(router)
                 for ip in ip_list:
                     self.ip_map[ip] = router

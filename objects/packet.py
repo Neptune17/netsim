@@ -25,10 +25,10 @@ class Packet:
             "LOG_info" : None
         }
 
-    def add_log(self, log_time, log_description):
+    def add_log(self, log_time, log_obj_name, log_port_ip, log_inout, log_description):
         if self.extra["LOG_info"] is None:
             self.extra["LOG_info"] = []
-        self.extra["LOG_info"].append([log_time, log_description])
+        self.extra["LOG_info"].append([log_time, log_obj_name, log_port_ip, log_inout, log_description])
 
     def get_simplified_packet_info(self):
         return {

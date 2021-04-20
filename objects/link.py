@@ -12,7 +12,7 @@ class Link:
         self.trace = self.analyze_trace_file(trace_path)
         self.current_trace_index = 0
 
-        self.next_available_time = -1.0
+        self.next_available_time = 0.0
     
     def get_next_available_time(self):
         return self.next_available_time

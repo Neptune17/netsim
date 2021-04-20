@@ -6,7 +6,7 @@ from utils import *
 
 class Router:
 
-    def __init__(self, name, ip_list, queue_config, route_table, queue_sche_solution, max_rate):
+    def __init__(self, name, ip_list, queue_config, route_table, queue_sche_solution, max_rate, log_path):
         
         self.name = name
 
@@ -49,6 +49,19 @@ class Router:
         
         self.rr_port_index = 0
 
+        self.log_path = log_path
+
+    def log_queue_size(self, event_time):
+        f = open(self.log_path + self.name + ".log", "a+")
+        data = {}
+        for i in range(len(self.ip_list)):
+            data[intip_to_strip(self.ip_list[i])] = []
+            for j in range(len(self.queues[i])):
+                data[intip_to_strip(self.ip_list[i])].append(len(self.queues[i][j]))
+        data["event_time"] = event_time
+        print(data, file = f)
+        f.close()
+
     def get_next_event_time(self):
 
         min_port_available_time = None
@@ -83,6 +96,8 @@ class Router:
 
         packet = self.queues[port_id][self.queue_sche_solution_cache_out].pop(0)
 
+        self.log_queue_size(event_time)
+        
         event_delay, send_delay, dropped = self.out_links[port_id].send_packet(packet, event_time)
 
         packet.dropped = dropped
@@ -114,7 +129,7 @@ class Router:
             self.lock_count += 1
             event_list.append((tartime, eventType.ROUTER_PRE_SEND_EVENT, self.send_packet))
 
-        packet.add_log(event_time, self.name + " out " + intip_to_strip(self.ip_list[port_id]))
+        packet.add_log(event_time, self.name, intip_to_strip(self.ip_list[port_id]), "out", "")
 
         self.queue_sche_solution_cache_out = None
 
@@ -157,7 +172,8 @@ class Router:
         else:
             if self.lock_count == 0:
                 self.lock_count += 1
-                event_list.append((event_time, eventType.ROUTER_PRE_SEND_EVENT, self.send_packet))
+                tartime = max(self.get_next_event_time(), event_time)
+                event_list.append((tartime, eventType.ROUTER_PRE_SEND_EVENT, self.send_packet))
 
             tarport = -1
             for tarsubnet in self.route_table:
@@ -169,11 +185,12 @@ class Router:
 
             if len(self.queues[tarport][self.queue_sche_solution_cache_in]) < self.queue_size[tarport][self.queue_sche_solution_cache_in]:
                 self.queues[tarport][self.queue_sche_solution_cache_in].append(packet)
+                self.log_queue_size(event_time)
             else:
                 packet.dropped = True
                 event_list.append((event_time + packetConfig.DROP_PUNISHMENDT, eventType.PACKET_EVENT, packet.srcip, packet))
             
-            packet.add_log(event_time, self.name + " in " + intip_to_strip(port_ip))
+            packet.add_log(event_time, self.name, intip_to_strip(port_ip), "in", "")
 
             self.queue_sche_solution_cache_in = None
 

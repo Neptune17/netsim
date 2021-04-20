@@ -117,7 +117,7 @@ class Sender:
         if len(self.wait_for_push_packets) + self.wait_for_select_size() != 0:
             event_list.extend(self.generate_send_events(event_time + actual_delay))
 
-        packet.add_log(event_time, self.name + " out " + intip_to_strip(self.ip))
+        packet.add_log(event_time, self.name, intip_to_strip(self.ip), "out", "")
 
         self.wait_for_ack_num += 1
 
@@ -156,7 +156,7 @@ class Sender:
                 
                 event_list.append((event_time, eventType.BLOCK_EVENT_ACK, packet))
 
-        packet.add_log(event_time, self.name + " in " + intip_to_strip(port_ip))
+        packet.add_log(event_time, self.name, intip_to_strip(port_ip), "in", "")
 
         self.wait_for_ack_num -= 1
         event_list.extend(self.generate_send_events(event_time))

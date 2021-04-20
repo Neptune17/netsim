@@ -2,7 +2,7 @@ from solution.sender.cc import CongestionControl
 
 class Reno(CongestionControl):
 
-    def __init__(self):
+    def __init__(self, log_path = None):
         super(Reno, self).__init__()
         self.ssthresh = float("inf")
         self.curr_state = "slow_start"
@@ -16,6 +16,8 @@ class Reno(CongestionControl):
         self.cwnd = 1
 
         self.last_decision_time = 0.0
+
+        self.log_path = log_path
 
     def ack_event(self, event_time):
         
@@ -34,6 +36,11 @@ class Reno(CongestionControl):
             if self.ack_nums == self.cwnd:
                 self.cwnd += 1
                 self.ack_nums = 0
+
+        if self.log_path != None:
+            f = open(self.log_path + "reno.log", "a+")
+            print(event_time, self.cwnd, file = f)
+            f.close()
 
         return 
     
@@ -58,6 +65,11 @@ class Reno(CongestionControl):
             self.curr_state = self.states[1]
 
         self.cur_time = event_time
+
+        if self.log_path != None:
+            f = open(self.log_path + "reno.log", "a+")
+            print(event_time, self.cwnd, file = f)
+            f.close()
 
         return 
     
