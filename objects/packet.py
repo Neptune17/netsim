@@ -15,8 +15,9 @@ class Packet:
         self.create_timestamp = create_timestamp
         self.size = size
 
-        self.is_dropped = False
+        self.dropped = False
         self.ack = False
+        self.retrans = False
         self.finish_timestamp = float("inf")
         self.transport_offset = -1
         self.extra = {
@@ -27,7 +28,7 @@ class Packet:
     def add_log(self, log_time, log_description):
         if self.extra["LOG_info"] is None:
             self.extra["LOG_info"] = []
-        self.extra["LOG_info"].append((log_time, log_description))
+        self.extra["LOG_info"].append([log_time, log_description])
 
     def get_simplified_packet_info(self):
         return {
@@ -47,8 +48,9 @@ class Packet:
             "Create_timestamp" : self.create_timestamp,
             "Finished_timestamp" : self.finish_timestamp,
             "Size" : self.size,
-            "Is_dropped" : self.is_dropped,
+            "Dropped" : self.dropped,
             "Ack" : self.ack,
+            "Retrans" : self.retrans,
             "Transport_offset" : self.transport_offset,
             "extra" : self.extra
         }
@@ -58,6 +60,7 @@ class Packet:
         new_packet.transport_offset = self.transport_offset
         new_packet.extra = self.extra
         new_packet.ack = self.ack
+        new_packet.retrans = True
         return new_packet
 
     def __str__(self):

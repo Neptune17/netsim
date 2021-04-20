@@ -61,7 +61,7 @@ class Link:
 
         bandwidth, delay, loss_rate = self.get_link_status(current_time)
 
-        is_dropped = random.random() < loss_rate
+        dropped = random.random() < loss_rate
 
         send_delay = self.get_send_delay(packet.size, current_time)
 
@@ -69,7 +69,7 @@ class Link:
 
         self.next_available_time = current_time + send_delay
 
-        return event_delay, send_delay, is_dropped
+        return event_delay, send_delay, dropped
 
     _next_id = 1
 

@@ -1,4 +1,5 @@
 import os
+import json
 
 from objects.simluator import Simluator
 
@@ -9,10 +10,11 @@ from solution.router.queue_scheduler_solution.sp import SP
 from config.constant import *
 
 from utils import *
+from log_utils import *
 
 if __name__ == '__main__':
 
-    net_trace1 = "dataset/link_trace/trace1.txt"
+    net_trace1 = "dataset/link_trace/trace2.txt"
     net_trace2 = "dataset/link_trace/trace1.txt"
     net_trace3 = "dataset/link_trace/trace1.txt"
     net_trace4 = "dataset/link_trace/trace1.txt"
@@ -42,3 +44,6 @@ if __name__ == '__main__':
 
     testsimluator = Simluator(config_dict, "output/")
     testsimluator.run()
+
+    print(json.dumps(packet_statistics("output/packet_log/", "192.168.0.1"), indent=4))
+    print(json.dumps(packet_statistics("output/packet_log/", "192.168.1.1"), indent=4))

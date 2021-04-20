@@ -127,7 +127,7 @@ class Simluator:
             event_time = event[0]
             event_type = event[1]
 
-            print(event_time, eventType.DEBUG_STR[event_type])
+            # print(event_time, eventType.DEBUG_STR[event_type])
 
             if event_type == eventType.STOP_CHECKER:
                 break
@@ -149,7 +149,6 @@ class Simluator:
                 event[2](event[3], event[4])
             if event_type == eventType.PACKET_EVENT:
                 event_list = self.ip_map[event[2]].receive_packet(event[3], event[2], event_time)
-                # print(intip_to_strip(event[2]), event[3].get_full_packet_info())
                 for event in event_list:
                     heapq.heappush(self.event_queue, event)
             if event_type == eventType.ROUTER_PRE_SEND_EVENT:

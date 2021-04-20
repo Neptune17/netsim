@@ -83,11 +83,11 @@ class Router:
 
         packet = self.queues[port_id][self.queue_sche_solution_cache_out].pop(0)
 
-        event_delay, send_delay, is_dropped = self.out_links[port_id].send_packet(packet, event_time)
+        event_delay, send_delay, dropped = self.out_links[port_id].send_packet(packet, event_time)
 
-        packet.is_dropped = is_dropped
+        packet.dropped = dropped
 
-        if packet.is_dropped:
+        if packet.dropped:
             event_list.append((event_time + packetConfig.DROP_PUNISHMENDT, eventType.PACKET_EVENT, packet.srcip, packet))
         else:
             event_list.append((event_time + event_delay, eventType.PACKET_EVENT, self.out_links[port_id].dest_ip, packet))
@@ -170,7 +170,7 @@ class Router:
             if len(self.queues[tarport][self.queue_sche_solution_cache_in]) < self.queue_size[tarport][self.queue_sche_solution_cache_in]:
                 self.queues[tarport][self.queue_sche_solution_cache_in].append(packet)
             else:
-                packet.is_dropped = True
+                packet.dropped = True
                 event_list.append((event_time + packetConfig.DROP_PUNISHMENDT, eventType.PACKET_EVENT, packet.srcip, packet))
             
             packet.add_log(event_time, self.name + " in " + intip_to_strip(port_ip))

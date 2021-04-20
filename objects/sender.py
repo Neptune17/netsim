@@ -42,6 +42,9 @@ class Sender:
         if self.lock_time > event_time:
             tar_time = self.lock_time
 
+        if len(self.wait_for_push_packets) + self.wait_for_select_size() == 0:
+            return event_list
+
         if len(self.wait_for_push_packets) == 0:
             event_list.append((tar_time, eventType.SOLUTION_SENDER_SCHE_EVENT, self.sche_solution.select_next_packet, self))
         event_list.append((tar_time, eventType.SOLUTION_SENDER_CC_EVENT_SEND, self.cc_solution.send_event, self))
@@ -80,11 +83,13 @@ class Sender:
         assert(self.sche_solution_cache is not None or len(self.wait_for_push_packets) != 0)
 
         if self.cc_solution_cache["USE_CWND"]:
-            if self.wait_for_ack_num > self.cc_solution_cache["CWND"]:
+            if self.wait_for_ack_num >= self.cc_solution_cache["CWND"]:
                 event_list = []
                 
                 self.cc_solution_cache = None
                 self.sche_solution_cache = None
+
+                self.lock_count -= 1
 
                 return event_list
 
@@ -93,11 +98,11 @@ class Sender:
         else:
             packet = self.wait_for_select_packets[self.sche_solution_cache].pop(0)
             
-        event_delay, send_delay, is_dropped = self.out_links[0].send_packet(packet, event_time)
+        event_delay, send_delay, dropped = self.out_links[0].send_packet(packet, event_time)
 
-        packet.is_dropped = is_dropped
+        packet.dropped = dropped
 
-        if packet.is_dropped:
+        if packet.dropped:
             event_list.append((event_time + packetConfig.DROP_PUNISHMENDT, eventType.PACKET_EVENT, packet.srcip, packet))
         else:
             event_list.append((event_time + event_delay, eventType.PACKET_EVENT, self.out_links[0].dest_ip, packet))
@@ -114,6 +119,8 @@ class Sender:
 
         packet.add_log(event_time, self.name + " out " + intip_to_strip(self.ip))
 
+        self.wait_for_ack_num += 1
+
         self.cc_solution_cache = None
         self.sche_solution_cache = None
 
@@ -123,7 +130,7 @@ class Sender:
 
         event_list = []
 
-        if packet.is_dropped:
+        if packet.dropped:
             event_list.append((event_time, eventType.SOLUTION_SENDER_CC_EVENT_DROP, self.cc_solution.drop_event))
             retrans_packet = packet.gen_retrans_packet(event_time)
             if len(self.wait_for_push_packets) + self.wait_for_select_size() == 0:
@@ -150,6 +157,9 @@ class Sender:
                 event_list.append((event_time, eventType.BLOCK_EVENT_ACK, packet))
 
         packet.add_log(event_time, self.name + " in " + intip_to_strip(port_ip))
+
+        self.wait_for_ack_num -= 1
+        event_list.extend(self.generate_send_events(event_time))
 
         event_list.append((event_time, eventType.LOG_PACKET_EVENT, packet))
 
