@@ -136,8 +136,8 @@ if __name__ == '__main__':
     net_trace = "dataset/link_trace/trace1.txt"
 
     block_trace0 = "dataset/block_trace/FULL0.txt"
-    block_trace5 = "dataset/block_trace/FULL5.txt"
-    block_trace10 = "dataset/block_trace/FULL10.txt"
+    block_trace5 = "dataset/block_trace/FULL1.txt"
+    block_trace10 = "dataset/block_trace/FULL2.txt"
 
     log_root_dir = "outputmulti/"
 
