@@ -28,7 +28,7 @@ class Sender:
         self.lock_time = -1.0
         self.lock_count = 0
 
-    def add_link(self, link):
+    def add_link(self, src_ip, link):
         self.out_links.append(link)
 
     def generate_send_events(self, event_time):
@@ -46,9 +46,9 @@ class Sender:
             return event_list
 
         if len(self.wait_for_push_packets) == 0:
-            event_list.append((tar_time, eventType.SOLUTION_SENDER_SCHE_EVENT, self.sche_solution.select_next_packet, self))
-        event_list.append((tar_time, eventType.SOLUTION_SENDER_CC_EVENT_SEND, self.cc_solution.send_event, self))
-        event_list.append((tar_time, eventType.SENDER_EVENT, self.send_packet))
+            event_list.append(([tar_time, eventType.SOLUTION_SENDER_SCHE_EVENT], [self.sche_solution.select_next_packet, self]))
+        event_list.append(([tar_time, eventType.SOLUTION_SENDER_CC_EVENT_SEND], [self.cc_solution.send_event, self]))
+        event_list.append(([tar_time, eventType.SENDER_EVENT], [self.send_packet]))
 
         self.lock_time = tar_time
         self.lock_count += 1
@@ -97,15 +97,19 @@ class Sender:
             packet = self.wait_for_push_packets.pop(0)
         else:
             packet = self.wait_for_select_packets[self.sche_solution_cache].pop(0)
-            
+
+        if packet.transport_offset == -1:
+            packet.transport_offset = self.current_transport_seq
+            self.current_transport_seq += 1
+
         event_delay, send_delay, dropped = self.out_links[0].send_packet(packet, event_time)
 
         packet.dropped = dropped
 
         if packet.dropped:
-            event_list.append((event_time + packetConfig.DROP_PUNISHMENDT, eventType.PACKET_EVENT, packet.srcip, packet))
+            event_list.append(([event_time + packetConfig.DROP_PUNISHMENDT, eventType.PACKET_EVENT], [packet.srcip, packet]))
         else:
-            event_list.append((event_time + event_delay, eventType.PACKET_EVENT, self.out_links[0].dest_ip, packet))
+            event_list.append(([event_time + event_delay, eventType.PACKET_EVENT], [self.out_links[0].dest_ip, packet]))
 
         actual_delay = send_delay
         if "PADDING_RATE" in self.cc_solution_cache:
@@ -131,7 +135,7 @@ class Sender:
         event_list = []
 
         if packet.dropped:
-            event_list.append((event_time, eventType.SOLUTION_SENDER_CC_EVENT_DROP, self.cc_solution.drop_event))
+            event_list.append(([event_time, eventType.SOLUTION_SENDER_CC_EVENT_DROP], [self.cc_solution.drop_event]))
             retrans_packet = packet.gen_retrans_packet(event_time)
             if len(self.wait_for_push_packets) + self.wait_for_select_size() == 0:
                 event_list.extend(self.generate_send_events(event_time))
@@ -140,12 +144,17 @@ class Sender:
         else:
             if packet.ack:
                 packet.finish_timestamp = event_time
-                event_list.append((event_time, eventType.SOLUTION_SENDER_CC_EVENT_ACK, self.cc_solution.ack_event))
+                data = {}
+                data["inflight"] = self.wait_for_ack_num
+                data["rtt"] = packet.finish_timestamp - packet.create_timestamp
+                data["delivered"] = packet.transport_offset
+                event_list.append(([event_time, eventType.SOLUTION_SENDER_CC_EVENT_ACK], [self.cc_solution.ack_event, data]))
             else:
                 packet.finish_timestamp = event_time
 
                 ack_packet = Packet(packet.srcip, packet.destip, event_time, packetConfig.BYTES_PER_HEADER)
                 ack_packet.ack = True
+                ack_packet.transport_offset = packet.transport_offset
                 push_event_flag = False
                 if len(self.wait_for_push_packets) + self.wait_for_select_size() == 0:
                     push_event_flag = True
@@ -154,13 +163,13 @@ class Sender:
                 if push_event_flag:
                     event_list.extend(self.generate_send_events(event_time))
                 
-                event_list.append((event_time, eventType.BLOCK_EVENT_ACK, packet))
+                event_list.append(([event_time, eventType.BLOCK_EVENT_ACK], [packet]))
 
         packet.add_log(event_time, self.name, intip_to_strip(port_ip), "in", "")
 
         self.wait_for_ack_num -= 1
         event_list.extend(self.generate_send_events(event_time))
 
-        event_list.append((event_time, eventType.LOG_PACKET_EVENT, packet))
+        event_list.append(([event_time, eventType.LOG_PACKET_EVENT], [packet]))
 
         return event_list

@@ -15,11 +15,9 @@ class Reno(CongestionControl):
         self.USE_CWND = True
         self.cwnd = 1
 
-        self.last_decision_time = 0.0
-
         self.log_path = log_path
 
-    def ack_event(self, event_time):
+    def ack_event(self, event_time, data):
         
         self.cur_time = event_time
         self.last_cwnd = self.cwnd

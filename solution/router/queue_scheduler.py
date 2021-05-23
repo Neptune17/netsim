@@ -4,9 +4,10 @@ class QueueScheduler:
         
         if len(router.queues[port_id][0]) != 0:
             router.queue_sche_solution_cache_out = 0
+        elif len(router.queues[port_id]) == 1:
+            router.queue_sche_solution_cache_out = 0
         else:
             router.queue_sche_solution_cache_out = 1
-
         return 
     
     def packet_in_queue(self, router, packet):

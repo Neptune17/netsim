@@ -1,4 +1,5 @@
 import heapq
+import random
 import pandas as pd
 
 from objects.sender import Sender
@@ -31,7 +32,14 @@ class Simluator:
         self.cur_log_index = -1
         self.log_counter = 0
 
+        self.random_queue_index_maxlen = 2000
+        self.random_queue_index_pool = [i for i in range(self.random_queue_index_maxlen)]
+        self.random_queue_index_index = 0
+
+        random.shuffle(self.random_queue_index_pool)
+
         os.mkdir(self.log_path + "router_log/")
+        os.mkdir(self.log_path + "sender_log/")
 
         for node_config in config_dict["nodes"]:
             node_type = node_config[0]
@@ -66,10 +74,23 @@ class Simluator:
             trace_path = edge_config[2]
             link = Link(dest_ip = strip_to_intip(dest_ip), trace_path = trace_path)
             self.links.append(link)
-            self.ip_map[strip_to_intip(src_ip)].add_link(link)
+            self.ip_map[strip_to_intip(src_ip)].add_link(src_ip, link)
         
-        for ip in self.ip_map:
-            print(intip_to_strip(ip), self.ip_map[ip])
+        for sender in self.senders:
+            print(sender.name, "Sender")
+            print("out links:")
+            print("if0:", intip_to_strip(sender.ip), "->", intip_to_strip(sender.out_links[0].dest_ip))
+            print()
+
+        for router in self.routers:
+            print(router.name, "Router")
+            print("out links:")
+            for idx, link in enumerate(router.out_links):
+                print("if" + str(idx) + ":", intip_to_strip(router.ip_list[idx]), "->", intip_to_strip(router.out_links[idx].dest_ip))
+            print("route table:")
+            for subnet in router.route_table:
+                print(subnet, "->", intip_to_strip(router.ip_list[router.route_table[subnet]]))
+            print()
 
         for block_config in config_dict["blocks"]:
             src_ip = block_config[0]
@@ -97,7 +118,13 @@ class Simluator:
                               bytes_per_header = packetConfig.BYTES_PER_HEADER)
                 self.blocks.append(block)
                 self.block_map[block.block_id] = block
-                heapq.heappush(self.event_queue, (create_timestamp, eventType.BLOCK_EVENT_CREATE, self.ip_map[strip_to_intip(src_ip)].add_block, block.block_id))
+                heapq.heappush(self.event_queue, [create_timestamp, eventType.BLOCK_EVENT_CREATE, self.get_random_index(), self.ip_map[strip_to_intip(src_ip)].add_block, block.block_id])
+
+    def get_random_index(self):
+        self.random_queue_index_index += 1
+        if self.random_queue_index_index == self.random_queue_index_maxlen:
+            self.random_queue_index_index = 0
+        return self.random_queue_index_pool[self.random_queue_index_index]
 
     def log_packet(self, packet):
         if self.cur_log_index < 0:
@@ -125,6 +152,7 @@ class Simluator:
                 break
 
             event = heapq.heappop(self.event_queue)
+            # print(event)
 
             event_time = event[0]
             event_type = event[1]
@@ -132,41 +160,152 @@ class Simluator:
             # print(event_time, eventType.DEBUG_STR[event_type])
 
             if event_type == eventType.STOP_CHECKER:
+                # To check if time is up
+                # event details:
+                #   event_time
+                #   STOP_CHECKER
                 break
             if event_type == eventType.BLOCK_EVENT_CREATE:
-                event_list = event[2](self.block_map[event[3]], event_time)
-                for event in event_list:
-                    heapq.heappush(self.event_queue, event)
+                # To create transmission
+                # event details:
+                #   event_time
+                #   BLOCK_EVENT_CREATE
+                #   random_index 
+                #   Block target Src Sender's add_block func
+                #   Block id
+                event_list = event[3](self.block_map[event[4]], event_time)
+                for (event_info, event_func) in event_list:
+                    assembled_event = []
+                    assembled_event.extend(event_info)
+                    assembled_event.extend([self.get_random_index()])
+                    assembled_event.extend(event_func)
+                    heapq.heappush(self.event_queue, assembled_event)
             if event_type == eventType.SENDER_EVENT:
-                event_list = event[2](event_time)
-                for event in event_list:
-                    heapq.heappush(self.event_queue, event)
+                # To send a packet in a sender(CC and packet selection should be done before this)
+                # event details:
+                #   event_time
+                #   SENDER_EVENT
+                #   random_index 
+                #   Sender's send_packet func
+                event_list = event[3](event_time)
+                for (event_info, event_func) in event_list:
+                    assembled_event = []
+                    assembled_event.extend(event_info)
+                    assembled_event.extend([self.get_random_index()])
+                    assembled_event.extend(event_func)
+                    heapq.heappush(self.event_queue, assembled_event)
             if event_type == eventType.SOLUTION_SENDER_SCHE_EVENT:
-                event[2](event[3])
+                # To call packet selection algorithm before send a packet in a sender
+                # event details:
+                #   event_time
+                #   SOLUTION_SENDER_SCHE_EVENT
+                #   random_index 
+                #   Target Sender's block selection algorithm's select_next_packet func
+                #   Target Sender
+                event[3](event[4])
             if event_type == eventType.SOLUTION_SENDER_CC_EVENT_SEND:
-                event[2](event[3])
+                # To call CC algorithm before send a packet in a sender
+                # event details:
+                #   event_time
+                #   SOLUTION_SENDER_CC_EVENT_SEND
+                #   random_index 
+                #   Target Sender's CC algorithm's send_event func
+                #   Target Sender
+                event[3](event[4])
             if event_type == eventType.SOLUTION_ROUTER_SCHE_EVENT_IN:
-                event[2](event[3], event[4])
+                # To call queue manage algorithm on router to choose which queue should the packet in (receive)
+                # event details:
+                #   event_time
+                #   SOLUTION_ROUTER_SCHE_EVENT_IN
+                #   random_index 
+                #   Target Router's queue manage algorithm's packet_in_queue func
+                #   Target Router
+                #   Target packet
+                event[3](event[4], event[5])
             if event_type == eventType.SOLUTION_ROUTER_SCHE_EVENT_OUT:
-                event[2](event[3], event[4])
+                # To call queue manage algorithm on router to choose which queue should the packet out (send)
+                # event details:
+                #   event_time
+                #   SOLUTION_ROUTER_SCHE_EVENT_OUT
+                #   random_index 
+                #   Target Router
+                #   Target Port index
+                event[3](event[4], event[5])
             if event_type == eventType.PACKET_EVENT:
-                event_list = self.ip_map[event[2]].receive_packet(event[3], event[2], event_time)
-                for event in event_list:
-                    heapq.heappush(self.event_queue, event)
+                # Packet transferred to a Router or a Sender
+                # event details:
+                #   event_time
+                #   PACKET_EVENT
+                #   random_index 
+                #   Target ip
+                #   Target packet
+                event_list = self.ip_map[event[3]].receive_packet(event[4], event[3], event_time)
+                for (event_info, event_func) in event_list:
+                    assembled_event = []
+                    assembled_event.extend(event_info)
+                    assembled_event.extend([self.get_random_index()])
+                    assembled_event.extend(event_func)
+                    heapq.heappush(self.event_queue, assembled_event)
             if event_type == eventType.ROUTER_PRE_SEND_EVENT:
-                event_list = event[2](event_time)
-                for event in event_list:
-                    heapq.heappush(self.event_queue, event)
+                # To start a packet send event in a router(rr choose interface of router)
+                # event details:
+                #   event_time
+                #   ROUTER_PRE_SEND_EVENT
+                #   random_index 
+                #   Target router's send_packet func
+                event_list = event[3](event_time)
+                for (event_info, event_func) in event_list:
+                    assembled_event = []
+                    assembled_event.extend(event_info)
+                    assembled_event.extend([self.get_random_index()])
+                    assembled_event.extend(event_func)
+                    heapq.heappush(self.event_queue, assembled_event)
             if event_type == eventType.ROUTER_SEND_EVENT:
-                event_list = event[2](event[3], event_time)
-                for event in event_list:
-                    heapq.heappush(self.event_queue, event)
+                # To send a packet in certain interface of a router(queue selection should be done before this)
+                # event details:
+                #   event_time
+                #   ROUTER_SEND_EVENT
+                #   random_index 
+                #   Target router's send_packet_port func
+                #   Target interface index on target router
+                event_list = event[3](event[4], event_time)
+                for (event_info, event_func) in event_list:
+                    assembled_event = []
+                    assembled_event.extend(event_info)
+                    assembled_event.extend([self.get_random_index()])
+                    assembled_event.extend(event_func)
+                    heapq.heappush(self.event_queue, assembled_event)
             if event_type == eventType.BLOCK_EVENT_ACK:
-                self.block_map[event[2].extra["Block_info"]["Block_id"]].update_block_status_ack(event[2])
+                # To update transmission status when a packet of it is acked
+                # event details:
+                #   event_time
+                #   BLOCK_EVENT_ACK
+                #   random_index 
+                #   acked packet
+                self.block_map[event[3].extra["Block_info"]["Block_id"]].update_block_status_ack(event[3])
             if event_type == eventType.SOLUTION_SENDER_CC_EVENT_ACK:
-                event[2](event_time)
+                # To update Sender's CC algorithm when packet ack event is detected
+                # event details:
+                #   event_time
+                #   SOLUTION_SENDER_CC_EVENT_ACK
+                #   random_index 
+                #   Target Sender's CC algorithm's ack_event func
+                #   extra data for CC algorithm
+                event[3](event_time, event[4])
             if event_type == eventType.SOLUTION_SENDER_CC_EVENT_DROP:
-                event[2](event_time)
+                # To update Sender's CC algorithm when packet lost event is detected
+                # event details:
+                #   event_time
+                #   SOLUTION_SENDER_CC_EVENT_DROP
+                #   random_index 
+                #   Target Sender's CC algorithm's drop_event func
+                event[3](event_time)
             if event_type == eventType.LOG_PACKET_EVENT:
-                self.log_packet(event[2])
+                # To log packet when it arrives dest
+                # event details:
+                #   event_time
+                #   LOG_PACKET_EVENT
+                #   random_index 
+                #   Target Packet
+                self.log_packet(event[3])
         return 

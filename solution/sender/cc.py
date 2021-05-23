@@ -1,6 +1,6 @@
 class CongestionControl:
 
-    def ack_event(self, event_time):
+    def ack_event(self, event_time, data):
         return 
     
     def drop_event(self, event_time):
