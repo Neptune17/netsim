@@ -24,6 +24,7 @@ class Sender:
 
         self.cc_solution_cache = None
         self.sche_solution_cache = None
+        self.packet_label_cache = None
 
         self.lock_time = -1.0
         self.lock_count = 0
@@ -82,7 +83,7 @@ class Sender:
         assert(self.cc_solution_cache is not None)
         assert(self.sche_solution_cache is not None or len(self.wait_for_push_packets) != 0)
 
-        if self.cc_solution_cache["USE_CWND"]:
+        if "CWND" in self.cc_solution_cache:
             if self.wait_for_ack_num >= self.cc_solution_cache["CWND"]:
                 event_list = []
                 
@@ -101,6 +102,9 @@ class Sender:
         if packet.transport_offset == -1:
             packet.transport_offset = self.current_transport_seq
             self.current_transport_seq += 1
+
+        if self.packet_label_cache is not None:
+            packet.extra["label"] = self.packet_label_cache
 
         event_delay, send_delay, dropped = self.out_links[0].send_packet(packet, event_time)
 
@@ -146,8 +150,9 @@ class Sender:
                 packet.finish_timestamp = event_time
                 data = {}
                 data["inflight"] = self.wait_for_ack_num
-                data["rtt"] = packet.finish_timestamp - packet.create_timestamp
-                data["delivered"] = packet.transport_offset
+                data["rtt"] = packet.extra['LOG_info'][-1][0] - packet.extra['LOG_info'][0][0] + packet.extra["delay"]
+                if 'relabel' in packet.extra:
+                    data["delivered"] = packet.extra['relabel']
                 event_list.append(([event_time, eventType.SOLUTION_SENDER_CC_EVENT_ACK], [self.cc_solution.ack_event, data]))
             else:
                 packet.finish_timestamp = event_time
@@ -155,6 +160,9 @@ class Sender:
                 ack_packet = Packet(packet.srcip, packet.destip, event_time, packetConfig.BYTES_PER_HEADER)
                 ack_packet.ack = True
                 ack_packet.transport_offset = packet.transport_offset
+                ack_packet.extra["delay"] = packet.extra['LOG_info'][-1][0] - packet.extra['LOG_info'][0][0]
+                if 'label' in packet.extra:
+                    ack_packet.extra["relabel"] = packet.extra["label"]
                 push_event_flag = False
                 if len(self.wait_for_push_packets) + self.wait_for_select_size() == 0:
                     push_event_flag = True

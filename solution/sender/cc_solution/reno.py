@@ -74,7 +74,6 @@ class Reno(CongestionControl):
     def send_event(self, sender):
         
         result = {
-            "USE_CWND" : True,
             "CWND" : self.cwnd
         }
 

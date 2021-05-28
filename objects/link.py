@@ -42,7 +42,7 @@ class Link:
     def get_link_status(self, current_time):
 
         while(True):
-            if self.current_trace_index + 1 not in self.trace or self.trace[self.current_trace_index + 1][0] > current_time:
+            if (self.current_trace_index + 1) >= len(self.trace) or self.trace[self.current_trace_index + 1][0] > current_time:
                 bandwidth = self.trace[self.current_trace_index][1]
                 delay = self.trace[self.current_trace_index][3]
                 loss_rate = self.trace[self.current_trace_index][2]

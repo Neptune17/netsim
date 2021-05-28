@@ -1,3 +1,4 @@
+from config.constant import packetConfig
 from solution.sender.cc import CongestionControl
 
 class BBR(CongestionControl):
@@ -134,6 +135,7 @@ class BBR(CongestionControl):
         send_delivered = data["delivered"]
         # update bandwidth
         bw = self.cal_bw(send_delivered, rtt)
+
         # if is the first ack
         if self.maxbw == float("-inf"):
             self.maxbw = bw
@@ -190,11 +192,11 @@ class BBR(CongestionControl):
     def send_event(self, sender):
         
         result = {
-            "USE_CWND" : True,
             "CWND" : self.cwnd,
-            "PADDING_RATE" : self.pacing_rate
+            "PADDING_RATE" : self.pacing_rate * packetConfig.BYTES_PER_PACKET * 8 / 10**6
         }
 
         sender.cc_solution_cache = result
+        sender.packet_label_cache = self.delivered_nums
 
         return 

@@ -59,6 +59,7 @@ class Packet:
         new_packet = Packet(self.destip, self.srcip, current_time, self.size)
         new_packet.transport_offset = self.transport_offset
         new_packet.extra = self.extra
+        new_packet.extra['LOG_info'] = []
         new_packet.ack = self.ack
         new_packet.retrans = True
         return new_packet
