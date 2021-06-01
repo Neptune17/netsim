@@ -52,9 +52,6 @@ def single_reno_test(log_root_dir):
     testsimluator = Simluator(config_dict, log_root_dir)
     testsimluator.run()
 
-    print(json.dumps(packet_statistics(log_root_dir + "packet_log/", "192.168.0.1"), indent=4))
-    print(json.dumps(packet_statistics(log_root_dir + "packet_log/", "192.168.1.1"), indent=4))
-
     tar_interval_time = 0.08
     tar_interval_count = 500
 
@@ -138,9 +135,6 @@ def single_bbr_test(log_root_dir):
 
     testsimluator = Simluator(config_dict, log_root_dir)
     testsimluator.run()
-
-    print(json.dumps(packet_statistics(log_root_dir + "packet_log/", "192.168.0.1"), indent=4))
-    print(json.dumps(packet_statistics(log_root_dir + "packet_log/", "192.168.1.1"), indent=4))
 
     tar_interval_time = 0.1
     tar_interval_count = 400
@@ -620,9 +614,6 @@ def dctcp_test(log_root_dir):
 
     testsimluator = Simluator(config_dict, log_root_dir)
     testsimluator.run()
-
-    print(json.dumps(packet_statistics(log_root_dir + "packet_log/", "192.168.0.1"), indent=4))
-    print(json.dumps(packet_statistics(log_root_dir + "packet_log/", "192.168.1.1"), indent=4))
 
     tar_interval_time = 0.08
     tar_interval_count = 500
