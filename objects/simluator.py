@@ -202,7 +202,7 @@ class Simluator:
                 #   random_index 
                 #   Target Sender's block selection algorithm's select_next_packet func
                 #   Target Sender
-                event[3](event[4])
+                event[3](event[4], event_time)
             if event_type == eventType.SOLUTION_SENDER_CC_EVENT_SEND:
                 # To call CC algorithm before send a packet in a sender
                 # event details:

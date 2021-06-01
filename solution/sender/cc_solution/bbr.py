@@ -26,7 +26,7 @@ class BBR(CongestionControl):
 
         # probe_bw
         self.bbr_cwnd_gain = 2
-        self.probe_bw_gain = [5 / 4, 4 / 3, 1, 1, 1, 1, 1, 1]
+        self.probe_bw_gain = [5 / 4, 3 / 4, 1, 1, 1, 1, 1, 1]
         self.cycle_index = 0
 
         self.probe_rtt_gain = 1

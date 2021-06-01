@@ -80,6 +80,9 @@ class Sender:
         
         event_list = []
 
+        if self.sche_solution_cache == -233:
+            return event_list
+
         assert(self.cc_solution_cache is not None)
         assert(self.sche_solution_cache is not None or len(self.wait_for_push_packets) != 0)
 
