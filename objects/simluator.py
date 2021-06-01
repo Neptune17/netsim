@@ -58,12 +58,13 @@ class Simluator:
                 route_table = node_config[4]
                 queue_sche_solution = node_config[5]
                 max_rate = node_config[6]
+                label_solution = None if (len(node_config) == 7) else node_config[7]
 
                 ip_list = []
                 for strip in strip_list:
                     ip_list.append(strip_to_intip(strip))
 
-                router = Router(name = name, ip_list = ip_list, queue_config = queue_config, route_table = route_table, queue_sche_solution = queue_sche_solution, max_rate = max_rate, log_path = self.log_path + "router_log/")
+                router = Router(name = name, ip_list = ip_list, queue_config = queue_config, route_table = route_table, queue_sche_solution = queue_sche_solution, max_rate = max_rate, log_path = self.log_path + "router_log/", label_solution = label_solution)
                 self.routers.append(router)
                 for ip in ip_list:
                     self.ip_map[ip] = router
@@ -308,4 +309,13 @@ class Simluator:
                 #   random_index 
                 #   Target Packet
                 self.log_packet(event[3])
+            if event_type == eventType.SOLUTION_ROUTER_LABEL_EVENT:
+                # To add packet label when it leaves router
+                # event details:
+                #   event_time
+                #   SOLUTION_ROUTER_LABEL_EVENT
+                #   random_index 
+                #   Target Router
+                #   Port id
+                event[3](event[4], event[5])    
         return 

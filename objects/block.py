@@ -41,7 +41,8 @@ class Block:
                 "Block_id" : self.block_id,
                 "Block_offset" : offset,
                 "Block_TTL" : self.time_to_live,
-                "Block_create_time" : self.create_timestamp
+                "Block_create_time" : self.create_timestamp,
+                "Block_priority" : self.priority
             }
             
             packet_list[offset].extra["Block_info"] = extra_block_info

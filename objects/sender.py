@@ -6,7 +6,7 @@ from utils import *
 
 class Sender:
 
-    def __init__(self, name, ip, cc_solution, sche_solution):
+    def __init__(self, name, ip, cc_solution, sche_solution, label_solution = None):
 
         self.name = name
         self.ip = ip
@@ -21,6 +21,7 @@ class Sender:
 
         self.cc_solution = cc_solution
         self.sche_solution = sche_solution
+        self.label_solution = label_solution
 
         self.cc_solution_cache = None
         self.sche_solution_cache = None
@@ -156,6 +157,8 @@ class Sender:
                 data["rtt"] = packet.extra['LOG_info'][-1][0] - packet.extra['LOG_info'][0][0] + packet.extra["delay"]
                 if 'relabel' in packet.extra:
                     data["delivered"] = packet.extra['relabel']
+                if 'rerouterlabel' in packet.extra:
+                    data["ECN"] = packet.extra['rerouterlabel']
                 event_list.append(([event_time, eventType.SOLUTION_SENDER_CC_EVENT_ACK], [self.cc_solution.ack_event, data]))
             else:
                 packet.finish_timestamp = event_time
@@ -166,6 +169,8 @@ class Sender:
                 ack_packet.extra["delay"] = packet.extra['LOG_info'][-1][0] - packet.extra['LOG_info'][0][0]
                 if 'label' in packet.extra:
                     ack_packet.extra["relabel"] = packet.extra["label"]
+                if 'routerlabel' in packet.extra:
+                    ack_packet.extra["rerouterlabel"] = packet.extra["routerlabel"]
                 push_event_flag = False
                 if len(self.wait_for_push_packets) + self.wait_for_select_size() == 0:
                     push_event_flag = True

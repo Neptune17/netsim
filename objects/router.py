@@ -6,7 +6,7 @@ from utils import *
 
 class Router:
 
-    def __init__(self, name, ip_list, queue_config, route_table, queue_sche_solution, max_rate, log_path):
+    def __init__(self, name, ip_list, queue_config, route_table, queue_sche_solution, max_rate, log_path, label_solution = None):
         
         self.name = name
 
@@ -38,9 +38,11 @@ class Router:
             self.queue_size.append(queue_config)
 
         self.queue_sche_solution = queue_sche_solution
+        self.label_solution = label_solution
 
         self.queue_sche_solution_cache_in = None
         self.queue_sche_solution_cache_out = None
+        self.label_solution_cache = None
         
         self.rr_port_index = 0
 
@@ -96,7 +98,13 @@ class Router:
 
         self.log_queue_size(event_time)
         
+        # assert(self.out_links[port_id].is_available(event_time))
+
         event_delay, send_delay, dropped = self.out_links[port_id].send_packet(packet, event_time)
+
+        if self.label_solution_cache is not None:
+            packet.extra["routerlabel"] = self.label_solution_cache
+            self.label_solution_cache = None
 
         packet.dropped = dropped
 
@@ -146,6 +154,8 @@ class Router:
             if self.in_queue_size(self.rr_port_index) != 0 and self.out_links[self.rr_port_index].is_available(event_time):
                 chosen_port_index = self.rr_port_index
                 event_list.append(([event_time, eventType.SOLUTION_ROUTER_SCHE_EVENT_OUT], [self.queue_sche_solution.packet_out_queue, self, chosen_port_index]))
+                if self.label_solution is not None:
+                    event_list.append(([event_time, eventType.SOLUTION_ROUTER_LABEL_EVENT], [self.label_solution.router_out_label, self, chosen_port_index]))
                 event_list.append(([event_time, eventType.ROUTER_SEND_EVENT], [self.send_packet_port, chosen_port_index]))
                 self.rr_port_index += 1
                 if self.rr_port_index == len(self.ip_list):
