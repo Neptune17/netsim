@@ -121,6 +121,11 @@ class Simluator:
                 self.block_map[block.block_id] = block
                 heapq.heappush(self.event_queue, [create_timestamp, eventType.BLOCK_EVENT_CREATE, self.get_random_index(), self.ip_map[strip_to_intip(src_ip)].add_block, block.block_id])
 
+        if "app" in config_dict:
+            src_ip = block_config[0]
+            dest_ip = block_config[1]
+            app = block_config[2]
+
     def get_random_index(self):
         self.random_queue_index_index += 1
         if self.random_queue_index_index == self.random_queue_index_maxlen:

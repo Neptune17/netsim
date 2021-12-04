@@ -17,6 +17,91 @@ from config.constant import *
 from utils import *
 from log_utils import *
 
+def single_abr_test(log_root_dir):
+
+    net_trace1 = "dataset/link_trace/traceReno1.txt"
+    net_trace2 = "dataset/link_trace/traceReno1.txt"
+    net_trace3 = "dataset/link_trace/traceReno1.txt"
+    net_trace4 = "dataset/link_trace/traceReno2.txt"
+
+    block_trace1 = "dataset/block_trace/FULL0.txt"
+
+    if os.path.exists(log_root_dir):
+        del_all(log_root_dir)
+    os.makedirs(log_root_dir)
+    os.makedirs(log_root_dir + "solution/")
+    os.makedirs(log_root_dir + "timeline/")
+
+    config_dict = {
+        "nodes": [
+            (objectType.SENDER, "SRC1", "192.168.0.1", FIFO(), Reno(log_root_dir + "solution/")), 
+            (objectType.SENDER, "DST1", "192.168.1.1", FIFO(), Reno()), 
+            (objectType.ROUTER, "router1", ["192.168.0.2", "192.168.1.2"], [25, 25], {"192.168.0.0/24" : "192.168.0.2", "192.168.1.0/24" : "192.168.1.2"}, SP(), 2.0)
+        ],
+        "edges": [
+            ("192.168.0.1", "192.168.0.2", net_trace1),
+            ("192.168.1.1", "192.168.1.2", net_trace2),
+            ("192.168.0.2", "192.168.0.1", net_trace3),
+            ("192.168.1.2", "192.168.1.1", net_trace4)
+        ],
+        "blocks": [
+            ("192.168.0.1", "192.168.1.1", block_trace1)
+        ],
+        ""
+    }
+
+    testsimluator = Simluator(config_dict, log_root_dir)
+    testsimluator.run()
+
+    tar_interval_time = 0.08
+    tar_interval_count = 500
+
+    src_timeline_data = timeline(log_root_dir + "packet_log/", "192.168.0.1", tar_interval_time, tar_interval_count)
+
+    fig = plt.figure(figsize = (12,6))
+    ax = fig.add_subplot(111)
+
+    lns1 = ax.plot([tar_interval_time * i for i in range(tar_interval_count)], src_timeline_data["send"]["total"], "g", label = "Send Rate")
+
+    ax2 = ax.twinx()
+
+    f_solution = open(log_root_dir + "solution/reno.log")
+    x = []
+    y = []
+    for line in f_solution.readlines():
+        if float(line.split(" ")[0]) >= tar_interval_count * tar_interval_time:
+            continue
+        x.append(float(line.split(" ")[0]))
+        y.append(float(line.split(" ")[1]))
+    lns2 = ax2.plot(x, y, "r", label = "Reno CWND")
+
+    f_router = open(log_root_dir + "router_log/router1.log")
+    x = [tar_interval_time * i for i in range(tar_interval_count)]
+    y = [0 for i in range(tar_interval_count)]
+    cnt = [0 for i in range(tar_interval_count)]
+    for line in f_router.readlines():
+        data = json.loads(line.replace("'", '"'))
+        if float(data["event_time"]) >= tar_interval_count * tar_interval_time:
+            continue
+        
+        y[int(float(data["event_time"]) / tar_interval_time)] += int(data["192.168.1.2"][1])
+        cnt[int(float(data["event_time"]) / tar_interval_time)] += 1
+    for i in range(tar_interval_count):
+        y[i] /= cnt[i]
+    lns3 = ax2.plot(x, y, "b", label = "Router Queue")
+    lns = lns1+lns2+lns3
+    labs = [l.get_label() for l in lns]
+    ax.legend(lns, labs, loc=0, fontsize="x-large")
+
+    ax.set_xlabel("Time(s)", fontsize=15)
+    ax.set_ylabel("Rate(Mbps)", fontsize=15)
+    ax2.set_ylabel("CWND or Queue(pkts)", fontsize=15)
+    ax2.axes.set_ylim(0,45)
+
+    plt.savefig(log_root_dir + "timeline/RenoSingleTest.jpg")
+    plt.savefig(log_root_dir + "timeline/RenoSingleTest.pdf")
+    plt.close()  
+
 def single_reno_test(log_root_dir):
 
     net_trace1 = "dataset/link_trace/traceReno1.txt"
