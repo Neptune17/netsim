@@ -1,6 +1,7 @@
 import heapq
 import random
 import pandas as pd
+from objects.app_abr import abr_client, abr_sevrer
 
 from objects.sender import Sender
 from objects.link import Link
@@ -40,6 +41,7 @@ class Simluator:
 
         os.mkdir(self.log_path + "router_log/")
         os.mkdir(self.log_path + "sender_log/")
+        os.mkdir(self.log_path + "abr_log/")
 
         for node_config in config_dict["nodes"]:
             node_type = node_config[0]
@@ -121,10 +123,39 @@ class Simluator:
                 self.block_map[block.block_id] = block
                 heapq.heappush(self.event_queue, [create_timestamp, eventType.BLOCK_EVENT_CREATE, self.get_random_index(), self.ip_map[strip_to_intip(src_ip)].add_block, block.block_id])
 
-        if "app" in config_dict:
-            src_ip = block_config[0]
-            dest_ip = block_config[1]
-            app = block_config[2]
+        if "abr" in config_dict:
+            for abr_config in config_dict["abr"]:
+                src_ip = abr_config[0]
+                dest_ip = abr_config[1]
+                abr_trace = abr_config[2]
+
+                data = open(abr_trace).readlines()
+                quality_cnt = int(data[0].split(' , ')[0])
+                block_cnt = int(data[0].split(' , ')[1])
+                block_time = int(data[0].split(' , ')[2])
+
+                config_abr = {}
+                config_abr["video"] = {}
+                config_abr["video"]["block_time"] = block_time
+                config_abr["video"]["block_cnt"] = block_cnt
+                config_abr["video"]["quality_cnt"] = quality_cnt
+                config_abr["blocks"] = [[0 for __ in range(quality_cnt)] for _ in range(block_cnt)]
+
+                for i in range(block_cnt):
+                    for j in range(quality_cnt):
+                        config_abr["blocks"][i][j] = int(data[i * 2 + j + 1])
+                
+                self.ip_map[strip_to_intip(src_ip)].abr_solution = abr_client(
+                    config_abr,
+                    abr_request_size = 40,
+                    buffer_max = 10,
+                    srcip = strip_to_intip(src_ip),
+                    destip = strip_to_intip(dest_ip))
+                self.ip_map[strip_to_intip(dest_ip)].abr_solution = abr_sevrer(
+                    config_abr,
+                    bytes_per_packet = 1500,
+                    bytes_per_header = 20)
+                heapq.heappush(self.event_queue, [0, eventType.ABR_FORCE_UPDATE, self.get_random_index(), self.ip_map[strip_to_intip(src_ip)].abr_force_update])
 
     def get_random_index(self):
         self.random_queue_index_index += 1
@@ -147,6 +178,11 @@ class Simluator:
 
         self.log_counter += 1
 
+    def log_ABR(self, type, id, quality, event_time):
+        f = open(self.log_path + "abr_log/" + "abr.log", "a+")
+        print(event_time, type, id, quality, file = f)
+        f.close()
+
     def run(self, time = float("inf")):
 
         if time != float("inf"):
@@ -163,7 +199,7 @@ class Simluator:
             event_time = event[0]
             event_type = event[1]
 
-            # print(event_time, eventType.DEBUG_STR[event_type])
+            print(event_time, eventType.DEBUG_STR[event_type])
 
             if event_type == eventType.STOP_CHECKER:
                 # To check if time is up
@@ -288,7 +324,8 @@ class Simluator:
                 #   BLOCK_EVENT_ACK
                 #   random_index 
                 #   acked packet
-                self.block_map[event[3].extra["Block_info"]["Block_id"]].update_block_status_ack(event[3])
+                if event[3].extra["Block_info"]["Block_id"] != -1:
+                    self.block_map[event[3].extra["Block_info"]["Block_id"]].update_block_status_ack(event[3])
             if event_type == eventType.SOLUTION_SENDER_CC_EVENT_ACK:
                 # To update Sender's CC algorithm when packet ack event is detected
                 # event details:
@@ -322,5 +359,15 @@ class Simluator:
                 #   random_index 
                 #   Target Router
                 #   Port id
-                event[3](event[4], event[5])    
+                event[3](event[4], event[5])
+            if event_type == eventType.LOG_ABR_EVENT:
+                self.log_ABR(event[3],event[4], event[5], event_time)
+            if event_type == eventType.ABR_FORCE_UPDATE:
+                event_list = event[3](event_time)
+                for (event_info, event_func) in event_list:
+                    assembled_event = []
+                    assembled_event.extend(event_info)
+                    assembled_event.extend([self.get_random_index()])
+                    assembled_event.extend(event_func)
+                    heapq.heappush(self.event_queue, assembled_event)
         return 

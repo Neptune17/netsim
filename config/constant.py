@@ -28,6 +28,8 @@ class eventType:
         14: "ROUTER_SEND_EVENT",
         15: "PACKET_EVENT",
         16: "LOG_PACKET_EVENT",
+        17: "LOG_ABR_EVENT",
+        18: "ABR_FORCE_UPDATE",
     }
     STOP_CHECKER = 1
     BLOCK_EVENT_CREATE  = 2
@@ -45,3 +47,5 @@ class eventType:
     ROUTER_SEND_EVENT = 14
     PACKET_EVENT = 15
     LOG_PACKET_EVENT = 16
+    LOG_ABR_EVENT = 17
+    ABR_FORCE_UPDATE = 18

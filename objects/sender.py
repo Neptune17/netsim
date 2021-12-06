@@ -1,4 +1,5 @@
 from config.constant import *
+from objects.app_abr import abr_client, abr_sevrer
 
 from objects.packet import Packet
 
@@ -6,7 +7,7 @@ from utils import *
 
 class Sender:
 
-    def __init__(self, name, ip, cc_solution, sche_solution, label_solution = None):
+    def __init__(self, name, ip, cc_solution, sche_solution, label_solution = None, abr_solution = None):
 
         self.name = name
         self.ip = ip
@@ -22,6 +23,7 @@ class Sender:
         self.cc_solution = cc_solution
         self.sche_solution = sche_solution
         self.label_solution = label_solution
+        self.abr_solution = abr_solution
 
         self.cc_solution_cache = None
         self.sche_solution_cache = None
@@ -29,6 +31,22 @@ class Sender:
 
         self.lock_time = -1.0
         self.lock_count = 0
+
+    def abr_force_update(self, event_time):
+
+        if self.abr_solution.last_block_id + 1 < self.abr_solution.config["video"]["block_cnt"]:
+            packets, events = self.abr_solution.receive_packet(None, event_time, True)
+            flag_push_events = False
+
+            if len(self.wait_for_push_packets) + self.wait_for_select_size() == 0:
+                flag_push_events = True
+
+            self.wait_for_select_packets.append(packets)
+            
+            if flag_push_events:
+                return self.generate_send_events(event_time)
+
+        return []
 
     def add_link(self, src_ip, link):
         self.out_links.append(link)
@@ -163,6 +181,17 @@ class Sender:
             else:
                 packet.finish_timestamp = event_time
 
+                packets = []
+                events = []
+                if isinstance(self.abr_solution, abr_sevrer):
+                    print(self.abr_solution, type(self.abr_solution))
+                    packets = self.abr_solution.receive_packet(packet, event_time)
+                if isinstance(self.abr_solution, abr_client):
+                    packets, events = self.abr_solution.receive_packet(packet, event_time, False)
+                    if len(events) == 1:
+                        delta_time = (self.abr_solution.buffer_time - self.abr_solution.play_time) - self.abr_solution.buffer_max
+                        events.append(([event_time + delta_time, eventType.ABR_FORCE_UPDATE], [self.abr_force_update]))
+
                 ack_packet = Packet(packet.srcip, packet.destip, event_time, packetConfig.BYTES_PER_HEADER)
                 ack_packet.ack = True
                 ack_packet.transport_offset = packet.transport_offset
@@ -175,10 +204,10 @@ class Sender:
                 if len(self.wait_for_push_packets) + self.wait_for_select_size() == 0:
                     push_event_flag = True
                 self.wait_for_push_packets.append(ack_packet)
-
+                self.wait_for_push_packets.extend(packets)
                 if push_event_flag:
                     event_list.extend(self.generate_send_events(event_time))
-                
+                event_list.extend(events)
                 event_list.append(([event_time, eventType.BLOCK_EVENT_ACK], [packet]))
 
         packet.add_log(event_time, self.name, intip_to_strip(port_ip), "in", "")
