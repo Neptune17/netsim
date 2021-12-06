@@ -199,7 +199,7 @@ class Simluator:
             event_time = event[0]
             event_type = event[1]
 
-            print(event_time, eventType.DEBUG_STR[event_type])
+            # print(event_time, eventType.DEBUG_STR[event_type])
 
             if event_type == eventType.STOP_CHECKER:
                 # To check if time is up

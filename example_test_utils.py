@@ -41,8 +41,8 @@ def single_abr_test(log_root_dir):
         "edges": [
             ("192.168.0.1", "192.168.0.2", net_trace1),
             ("192.168.1.1", "192.168.1.2", net_trace2),
-            ("192.168.0.2", "192.168.0.1", net_trace3),
-            ("192.168.1.2", "192.168.1.1", net_trace4)
+            ("192.168.0.2", "192.168.0.1", net_trace4),
+            ("192.168.1.2", "192.168.1.1", net_trace3)
         ],
         "blocks": [
         ],
@@ -54,54 +54,137 @@ def single_abr_test(log_root_dir):
     testsimluator = Simluator(config_dict, log_root_dir)
     testsimluator.run()
 
-    # tar_interval_time = 0.08
-    # tar_interval_count = 500
+    lines = open(log_root_dir + "abr_log/abr.log").readlines()
+    cooked_data = []
+    for line in lines:
+        splited_line = line.split(" ")
+        time = float(splited_line[0])
+        block_id = int(splited_line[2])
+        block_quality = int(splited_line[3])
+        type = 0 if splited_line[1] == "REQUEST" else 1
+        cooked_data.append((time, type, block_id, block_quality))
 
-    # src_timeline_data = timeline(log_root_dir + "packet_log/", "192.168.0.1", tar_interval_time, tar_interval_count)
+    time = []
+    buffer = []
+    buffer_cnt = 0
+    time.append(0.0)
+    buffer.append(0.0)
+    for data in cooked_data:
+        if data[1] == 0:
+            continue
+        if buffer_cnt > 0:
+            if buffer_cnt - (data[0] - time[-1]) < 0:
+                time.append(time[-1] + buffer_cnt)
+                buffer.append(0)
+                time.append(data[0] - 0.001)
+                buffer.append(0)
+                buffer_cnt = 0
+            else:
+                buffer_cnt -= (data[0] - time[-1])
+                time.append(data[0] - 0.001)
+                buffer.append(buffer_cnt)
+        buffer_cnt += 1
+        time.append(data[0])
+        buffer.append(buffer_cnt)
 
-    # fig = plt.figure(figsize = (12,6))
-    # ax = fig.add_subplot(111)
+    timex = []
+    bufferx = [[] for _ in range(2)]
+    sim_buffer = []
+    sim_buffer_time = 0.0
+    timex.append(0.0)
+    for i in range(2):
+        bufferx[i].append(0.0)
+    for data in cooked_data:
+        if data[1] == 0:
+            continue
+        if sim_buffer_time > 0:
+            delta_time = (data[0] - timex[-1])
+            while(delta_time > 0):
+                if len(sim_buffer) == 0:
+                    timex.append(data[0] - delta_time)
+                    for i in range(2):
+                        bufferx[i].append(0.0)
+                    timex.append(data[0] - 0.001)
+                    for i in range(2):
+                        bufferx[i].append(0.0)
+                    break
+                next_interval = 1.0
+                if sim_buffer_time - len(sim_buffer) + 1 > 0:
+                    next_interval = sim_buffer_time - len(sim_buffer) + 1
+                if delta_time >= next_interval:
+                    delta_time -= next_interval
+                    sim_buffer.pop(0)
+                    sim_buffer_time -= next_interval
+                    timex.append(data[0] - delta_time)
+                    for i in range(2):
+                        cnt = 0
+                        for j in range(len(sim_buffer)):
+                            if sim_buffer[j] != i:
+                                continue
+                            if j == 0:
+                                cnt += sim_buffer_time - len(sim_buffer) + 1
+                            else:
+                                cnt += 1
+                        bufferx[i].append(cnt) 
+                else:
+                    sim_buffer_time -= delta_time
+                    delta_time = 0
+                    timex.append(data[0] - 0.001)
+                    for i in range(2):
+                        cnt = 0
+                        for j in range(len(sim_buffer)):
+                            if sim_buffer[j] != i:
+                                continue
+                            if j == 0:
+                                cnt += sim_buffer_time - len(sim_buffer) + 1
+                            else:
+                                cnt += 1
+                        bufferx[i].append(cnt)                    
 
-    # lns1 = ax.plot([tar_interval_time * i for i in range(tar_interval_count)], src_timeline_data["send"]["total"], "g", label = "Send Rate")
+        sim_buffer_time += 1
+        sim_buffer.append(data[3])
+        timex.append(data[0])
+        for i in range(2):
+            cnt = 0
+            for j in range(len(sim_buffer)):
+                if sim_buffer[j] != i:
+                    continue
+                if j == 0:
+                    cnt += sim_buffer_time - len(sim_buffer) + 1
+                else:
+                    cnt += 1
+            bufferx[i].append(cnt)
 
-    # ax2 = ax.twinx()
+    fig = plt.figure(figsize = (12,6))
+    ax = fig.add_subplot(111)
 
-    # f_solution = open(log_root_dir + "solution/reno.log")
-    # x = []
-    # y = []
-    # for line in f_solution.readlines():
-    #     if float(line.split(" ")[0]) >= tar_interval_count * tar_interval_time:
-    #         continue
-    #     x.append(float(line.split(" ")[0]))
-    #     y.append(float(line.split(" ")[1]))
-    # lns2 = ax2.plot(x, y, "r", label = "Reno CWND")
+    tar_interval_time = 0.05
+    tar_interval_count = 1800
 
-    # f_router = open(log_root_dir + "router_log/router1.log")
-    # x = [tar_interval_time * i for i in range(tar_interval_count)]
-    # y = [0 for i in range(tar_interval_count)]
-    # cnt = [0 for i in range(tar_interval_count)]
-    # for line in f_router.readlines():
-    #     data = json.loads(line.replace("'", '"'))
-    #     if float(data["event_time"]) >= tar_interval_count * tar_interval_time:
-    #         continue
-        
-    #     y[int(float(data["event_time"]) / tar_interval_time)] += int(data["192.168.1.2"][1])
-    #     cnt[int(float(data["event_time"]) / tar_interval_time)] += 1
-    # for i in range(tar_interval_count):
-    #     y[i] /= cnt[i]
-    # lns3 = ax2.plot(x, y, "b", label = "Router Queue")
-    # lns = lns1+lns2+lns3
-    # labs = [l.get_label() for l in lns]
-    # ax.legend(lns, labs, loc=0, fontsize="x-large")
+    
+    lns1 = ax.plot([0,29.999,30,39.999,40,90], [1,1,0.5,0.5,1,1], label = "Bandwidth")
 
-    # ax.set_xlabel("Time(s)", fontsize=15)
-    # ax.set_ylabel("Rate(Mbps)", fontsize=15)
-    # ax2.set_ylabel("CWND or Queue(pkts)", fontsize=15)
-    # ax2.axes.set_ylim(0,45)
+    ax2 = ax.twinx()
 
-    # plt.savefig(log_root_dir + "timeline/RenoSingleTest.jpg")
-    # plt.savefig(log_root_dir + "timeline/RenoSingleTest.pdf")
-    # plt.close()  
+    lns2 = ax2.plot(time, buffer, "orange", label = "Buffer")
+    lns3 = ax2.plot(timex, bufferx[0], "g", label = "Buffer LOW")
+    lns4 = ax2.plot(timex, bufferx[1], "r", label = "Buffer HIGH")
+
+    lns = lns1 + lns2 + lns3 + lns4
+    labs = [l.get_label() for l in lns]
+    ax.legend(lns, labs, loc=0, fontsize="x-large")
+
+    ax.set_xlabel("Time(s)", fontsize=15)
+    ax.set_ylabel("Rate(Mbps)", fontsize=15)
+    ax2.set_ylabel("Buffer(s)", fontsize=15)
+    ax.axes.set_ylim(0,1.5)
+    ax2.axes.set_ylim(0,15)
+    ax2.axes.set_xlim(0,70)
+    ax.axes.set_xlim(0,70)
+
+    plt.title("BBA-0", fontsize=15)
+    plt.savefig(log_root_dir + "timeline/RenoSingleTest.jpg")
+    plt.close()
 
 def single_reno_test(log_root_dir):
 

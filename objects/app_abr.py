@@ -22,13 +22,37 @@ class abr_client:
 
         self.buffer_time = 0
         self.play_time = 0
-        self.last_block_time = 0
+        self.last_block_time = -1
         self.last_quality = 0
-        self.last_block_id = -1
+
+        self.inflight_block = []
+        self.acked_block = []
+        self.ack = {}
+        for _ in range(self.config["video"]["block_cnt"]):
+            self.ack[_] = []
+
+    def update_buffer(self, event_time):
+        elapsed_time = event_time - self.last_block_time
+        if self.last_block_time == -1:
+            elapsed_time = 0
+        if elapsed_time <= self.buffer_time - self.play_time:
+            self.play_time += elapsed_time
+        else:
+            self.play_time = self.buffer_time
+        self.last_block_time = event_time
 
     def choose_stream_block(self, block_list, last_quality, buffer_time, play_time, download_rate):
+        RESEVOIR, CUSHION = 2, 6
         
-        return 0
+        if self.buffer_time - self.play_time < RESEVOIR:
+            bit_rate = 0
+        elif self.buffer_time - self.play_time >= RESEVOIR + CUSHION:
+            bit_rate = self.config["video"]["quality_cnt"] - 1
+        else:
+            bit_rate = (self.config["video"]["quality_cnt"] - 1) * (self.buffer_time - self.play_time - RESEVOIR) / float(CUSHION)
+
+        bit_rate = int(bit_rate)
+        return bit_rate
 
     def receive_packet(self, packet: Packet, event_time, force_update: bool):
         download_rate = 1000000
@@ -36,9 +60,9 @@ class abr_client:
             packet_list = []
             packet_list.append(Packet(destip = self.destip, srcip = self.srcip, create_timestamp = event_time, size = self.abr_request_size))
             
-            if self.last_block_id == -1:
+            if len(self.acked_block) + len(self.inflight_block) == 0:
                 next_quality = 0
-                next_id = self.last_block_id + 1
+                next_id = 1
                 extra_abr_info = {
                     "time" : next_id,
                     "quality" : next_quality
@@ -50,30 +74,25 @@ class abr_client:
                     "Block_create_time" : event_time,
                     "Block_priority" : 0
                 }
-                self.last_block_id += 1
                 self.last_quality = next_quality
-                
+                self.inflight_block.append(next_id)
+
                 packet_list[0].extra["ABR_info"] = extra_abr_info
                 packet_list[0].extra["Block_info"] = extra_block_info
-                event_list = [[event_time, eventType.LOG_ABR_EVENT], ["REQUEST", next_id, next_quality]]
+                event_list = [([event_time, eventType.LOG_ABR_EVENT], ["REQUEST", next_id, next_quality])]
                 return packet_list, event_list
             
             else:
-                elapsed_time = event_time - self.last_block_time
-                if elapsed_time <= self.buffer_time - self.play_time:
-                    self.play_time += elapsed_time
-                else:
-                    self.play_time = self.buffer_time
 
                 event_list = []
 
-                block_list = self.config["blocks"][self.last_block_id + 1]
+                next_id = len(self.acked_block) + len(self.inflight_block) + 1
+                block_list = self.config["blocks"][next_id]
                 next_quality = self.choose_stream_block(block_list, self.last_quality, self.buffer_time, self.play_time, download_rate)
             
                 packet_list = []
                 packet_list.append(Packet(destip = self.destip, srcip = self.srcip, create_timestamp = event_time, size = self.abr_request_size))
                 
-                next_id = self.last_block_id + 1
                 extra_abr_info = {
                     "time" : next_id,
                     "quality" : next_quality
@@ -85,18 +104,29 @@ class abr_client:
                     "Block_create_time" : event_time,
                     "Block_priority" : 0
                 }
-                self.last_block_id += 1
+                self.inflight_block.append(next_id)
                 self.last_quality = next_quality
-                self.last_block_time = event_time
 
                 packet_list[0].extra["ABR_info"] = extra_abr_info
                 packet_list[0].extra["Block_info"] = extra_block_info
-                event_list.append([event_time, eventType.LOG_ABR_EVENT], ["REQUEST", next_id, next_quality])
+                event_list.append(([event_time, eventType.LOG_ABR_EVENT], ["REQUEST", next_id, next_quality]))
                 return packet_list, event_list
         
-        if packet.extra["ABR_info"]["offset"] + 1 == packet.extra["ABR_info"]["total"]:
+        if packet.extra["ABR_info"]["offset"] not in self.ack[packet.extra["ABR_info"]["time"]]:
+            self.ack[packet.extra["ABR_info"]["time"]].append(packet.extra["ABR_info"]["offset"])
+
+        flag = -1
+        if len(self.ack[packet.extra["ABR_info"]["time"]]) == packet.extra["ABR_info"]["total"]:
+            if packet.extra["ABR_info"]["time"] in self.inflight_block:
+                self.acked_block.append(packet.extra["ABR_info"]["time"])
+                self.inflight_block.remove(packet.extra["ABR_info"]["time"])
+                flag = packet.extra["ABR_info"]["time"]
+
+        if flag != -1:
             
             elapsed_time = event_time - self.last_block_time
+            if self.last_block_time == -1:
+                elapsed_time = 0
             if elapsed_time <= self.buffer_time - self.play_time:
                 self.play_time += elapsed_time
             else:
@@ -107,18 +137,18 @@ class abr_client:
             download_rate = packet.extra["ABR_info"]["total"] * 1480 / (event_time - self.last_block_time)
 
             event_list = []
-            event_list.append(([event_time, eventType.LOG_ABR_EVENT], ["RECEIVE", self.last_block_id, self.last_quality]))
+            event_list.append(([event_time, eventType.LOG_ABR_EVENT], ["RECEIVE", flag, self.last_quality]))
 
             if self.buffer_time - self.play_time < self.buffer_max:
 
                 packet_list = []
-                if self.last_block_id + 1 < self.config["video"]["block_cnt"]:
-                    block_list = self.config["blocks"][self.last_block_id + 1]
+                next_id = len(self.acked_block) + len(self.inflight_block) + 1
+                if next_id < self.config["video"]["block_cnt"]:
+                    block_list = self.config["blocks"][next_id]
                     next_quality = self.choose_stream_block(block_list, self.last_quality, self.buffer_time, self.play_time, download_rate)
                 
                     packet_list.append(Packet(destip = self.destip, srcip = self.srcip, create_timestamp = event_time, size = self.abr_request_size))
-                    
-                    next_id = self.last_block_id + 1
+
                     extra_abr_info = {
                         "time" : next_id,
                         "quality" : next_quality
@@ -131,9 +161,8 @@ class abr_client:
                         "Block_priority" : 0
                     }
                     
-                    self.last_block_id += 1
+                    self.inflight_block.append(next_id)
                     self.last_quality = next_quality
-                    self.last_block_time = event_time
 
                     packet_list[0].extra["ABR_info"] = extra_abr_info
                     packet_list[0].extra["Block_info"] = extra_block_info

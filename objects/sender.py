@@ -34,8 +34,8 @@ class Sender:
 
     def abr_force_update(self, event_time):
 
-        if self.abr_solution.last_block_id + 1 < self.abr_solution.config["video"]["block_cnt"]:
-            packets, events = self.abr_solution.receive_packet(None, event_time, True)
+        if len(self.abr_solution.acked_block) + len(self.abr_solution.inflight_block) + 1 < self.abr_solution.config["video"]["block_cnt"]:
+            packets, events = self.abr_solution.receive_packet(None,event_time, True)
             flag_push_events = False
 
             if len(self.wait_for_push_packets) + self.wait_for_select_size() == 0:
@@ -44,7 +44,9 @@ class Sender:
             self.wait_for_select_packets.append(packets)
             
             if flag_push_events:
-                return self.generate_send_events(event_time)
+                ret = self.generate_send_events(event_time)
+                ret.extend(events)
+                return ret
 
         return []
 
@@ -184,11 +186,11 @@ class Sender:
                 packets = []
                 events = []
                 if isinstance(self.abr_solution, abr_sevrer):
-                    print(self.abr_solution, type(self.abr_solution))
                     packets = self.abr_solution.receive_packet(packet, event_time)
                 if isinstance(self.abr_solution, abr_client):
                     packets, events = self.abr_solution.receive_packet(packet, event_time, False)
-                    if len(events) == 1:
+                    self.abr_solution.update_buffer(event_time)
+                    if len(packets) == 0 and len(events) == 1:
                         delta_time = (self.abr_solution.buffer_time - self.abr_solution.play_time) - self.abr_solution.buffer_max
                         events.append(([event_time + delta_time, eventType.ABR_FORCE_UPDATE], [self.abr_force_update]))
 
