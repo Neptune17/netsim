@@ -19,10 +19,10 @@ from log_utils import *
 
 def single_abr_test(log_root_dir):
 
-    net_trace1 = "dataset/link_trace/traceReno1.txt"
-    net_trace2 = "dataset/link_trace/traceReno1.txt"
-    net_trace3 = "dataset/link_trace/traceReno1.txt"
-    net_trace4 = "dataset/link_trace/traceReno2.txt"
+    net_trace1 = "dataset/link_trace/traceABR1.txt"
+    net_trace2 = "dataset/link_trace/traceABR1.txt"
+    net_trace3 = "dataset/link_trace/traceABR1.txt"
+    net_trace4 = "dataset/link_trace/traceABR2.txt"
 
     abr_trace = "dataset/abr_trace/simple_test.txt"
 
@@ -174,9 +174,9 @@ def single_abr_test(log_root_dir):
     labs = [l.get_label() for l in lns]
     ax.legend(lns, labs, loc=0, fontsize="x-large")
 
-    ax.set_xlabel("Time(s)", fontsize=15)
-    ax.set_ylabel("Rate(Mbps)", fontsize=15)
-    ax2.set_ylabel("Buffer(s)", fontsize=15)
+    ax.set_xlabel("时间(s)", fontsize=15)
+    ax.set_ylabel("带宽(Mbps)", fontsize=15)
+    ax2.set_ylabel("缓冲量(s)", fontsize=15)
     ax.axes.set_ylim(0,1.5)
     ax2.axes.set_ylim(0,15)
     ax2.axes.set_xlim(0,70)
@@ -531,15 +531,15 @@ def multi_reno_test(log_root_dir):
     plt.close()
 
     plt.figure(figsize = (15,6))
-    plt.xlabel("Time(s)", fontsize=15)
-    plt.ylabel("Rate(Mbps)", fontsize=15)
+    plt.xlabel("时间(s)", fontsize=15)
+    plt.ylabel("发送速度(Mbps)", fontsize=15)
 
     reno_data1 = timeline(log_root_dir + "packet_log/", "192.168.0.1", tar_interval_time, tar_interval_count)
-    plt.plot([tar_interval_time * i for i in range(tar_interval_count)], reno_data1["send"]["total"], label = "TPUT0")
+    plt.plot([tar_interval_time * i for i in range(tar_interval_count)], reno_data1["send"]["total"], label = "流0吞吐量")
     reno_data2 = timeline(log_root_dir + "packet_log/", "192.168.1.1", tar_interval_time, tar_interval_count)
-    plt.plot([tar_interval_time * i for i in range(tar_interval_count)], reno_data2["send"]["total"], label = "TPUT1")
+    plt.plot([tar_interval_time * i for i in range(tar_interval_count)], reno_data2["send"]["total"], label = "流1吞吐量")
     reno_data3 = timeline(log_root_dir + "packet_log/", "192.168.2.1", tar_interval_time, tar_interval_count)
-    plt.plot([tar_interval_time * i for i in range(tar_interval_count)], reno_data3["send"]["total"], label = "TPUT2")
+    plt.plot([tar_interval_time * i for i in range(tar_interval_count)], reno_data3["send"]["total"], label = "流2吞吐量")
 
     plt.legend(fontsize="x-large", loc = 9)
     plt.savefig(log_root_dir + "timeline/RenoMultiTPUTTest.jpg")
@@ -804,7 +804,7 @@ def dctcp_test(log_root_dir):
             continue
         x.append(float(line.split(" ")[0]))
         y.append(float(line.split(" ")[1]))
-    lns2 = ax2.plot(x, y, "r", label = "Reno CWND")
+    lns2 = ax2.plot(x, y, "r", label = "CWND")
 
     f_router = open(log_root_dir + "router_log/router1.log")
     x = [tar_interval_time * i for i in range(tar_interval_count)]
@@ -819,14 +819,14 @@ def dctcp_test(log_root_dir):
         cnt[int(float(data["event_time"]) / tar_interval_time)] += 1
     for i in range(tar_interval_count):
         y[i] /= cnt[i]
-    lns3 = ax2.plot(x, y, "b", label = "Router Queue")
+    lns3 = ax2.plot(x, y, "b", label = "Buffer")
     lns = lns1+lns2+lns3
     labs = [l.get_label() for l in lns]
     ax.legend(lns, labs, loc=0, fontsize="x-large")
 
-    ax.set_xlabel("Time(s)", fontsize=15)
-    ax.set_ylabel("Rate(Mbps)", fontsize=15)
-    ax2.set_ylabel("CWND or Queue(pkts)", fontsize=15)
+    ax.set_xlabel("时间(s)", fontsize=15)
+    ax.set_ylabel("发送速度(Mbps)", fontsize=15)
+    ax2.set_ylabel("拥塞窗口|队列长度(包)", fontsize=15)
     ax2.axes.set_ylim(0,45)
 
     plt.savefig(log_root_dir + "timeline/DCTCPSingleTest.jpg")
